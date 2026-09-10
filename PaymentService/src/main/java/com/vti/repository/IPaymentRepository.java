@@ -1,5 +1,11 @@
 package com.vti.repository;
 
-public interface IPaymentRepository {
+import java.util.List;
 
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import com.vti.entity.Payments;
+
+public interface IPaymentRepository extends JpaRepository<Payments, Long> {
+    List<Payments> findByOrderId(Long orderId);
 }

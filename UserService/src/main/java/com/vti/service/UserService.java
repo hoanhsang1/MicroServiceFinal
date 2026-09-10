@@ -3,94 +3,132 @@ package com.vti.service;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 
+import com.vti.dto.UserDto;
 import com.vti.entity.User;
+import com.vti.entity.enums.UserStatus;
 import com.vti.form.UserForm;
 import com.vti.form.UserFormUpdate;
 import com.vti.repository.IUserRepository;
+
+@Service
 public class UserService implements IUserService {
-    @Autowired 
+
+    @Autowired
     private IUserRepository userRepository;
-    @Override
-    public User getUserById(Long id) {
-        // TODO Auto-generated method stub
-        return userRepository.findById(id).orElse(null);
+
+    private UserDto toDto(User user) {
+        return UserDto.builder()
+                .id(user.getId())
+                .username(user.getUsername())
+                .email(user.getEmail())
+                .fullName(user.getFullName())
+                .phone(user.getPhone())
+                .status(user.getStatus())
+                .createdAt(user.getCreatedAt())
+                .updatedAt(user.getUpdatedAt())
+                .build();
     }
 
     @Override
-    public List<User> getAllUser() {
-        // TODO Auto-generated method stub
-        return userRepository.findAll();
+    public UserDto getUserById(Long id) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy user id=" + id));
+        return toDto(user);
     }
 
     @Override
-    public UserForm register(UserForm user) {
+    public List<UserDto> getAllUser() {
+        return userRepository.findAll().stream()
+                .map(this::toDto)
+                .toList();
+    }
 
-        if (userRepository.existsByUsername(user.getUsername())) {
-            throw new IllegalArgumentException(
-                    "User with username " + user.getUsername() + " already exists."
-            );
-        } else if (userRepository.existsByEmail(user.getEmail())) {
-            throw new IllegalArgumentException(
-                    "User with email " + user.getEmail() + " already exists."
-            );
-        } else if (userRepository.existsByPhone(user.getPhone())) {
-            throw new IllegalArgumentException(
-                    "User with phone " + user.getPhone() + " already exists."
-            );
-        } else if (user.getPassword().length() < 8) {
-            throw new IllegalArgumentException(
-                    "Password must be at least 8 characters long."
-            );
-        } else if (!user.getEmail().matches("^[A-Za-z0-9+_.-]+@(.+)$")) {
-            throw new IllegalArgumentException(
-                    "Invalid email format."
-            );
+    @Override
+    public UserDto register(UserForm form) {
+        if (userRepository.existsByUsername(form.getUsername())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "User with username " + form.getUsername() + " already exists.");
+        }
+        if (userRepository.existsByEmail(form.getEmail())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "User with email " + form.getEmail() + " already exists.");
+        }
+        if (userRepository.existsByPhone(form.getPhone())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "User with phone " + form.getPhone() + " already exists.");
+        }
+        if (form.getPassword() == null || form.getPassword().length() < 8) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Password must be at least 8 characters long.");
+        }
+        if (!form.getEmail().matches("^[A-Za-z0-9+_.-]+@(.+)$")) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid email format.");
         }
 
-        User newUser = new User();
+        // NOTE (làm sau): password đang lưu plain text, chưa mã hoá — chưa làm security
+        User newUser = User.builder()
+                .username(form.getUsername())
+                .email(form.getEmail())
+                .password(form.getPassword())
+                .fullName(form.getFullName())
+                .phone(form.getPhone())
+                .status(UserStatus.ACTIVE)
+                .build();
 
-        newUser.setUsername(user.getUsername());
-        newUser.setEmail(user.getEmail());
-        newUser.setPassword(user.getPassword());
-        newUser.setFullName(user.getFullName());
-        newUser.setPhone(user.getPhone());
-
-        User savedUser = userRepository.save(newUser);
-
-        return new UserForm(
-                savedUser.getUsername(),
-                savedUser.getEmail(),
-                savedUser.getPassword(),
-                savedUser.getFullName(),
-                savedUser.getPhone()
-        );
+        return toDto(userRepository.save(newUser));
     }
 
-    public UserFormUpdate updateUser(Long id, UserFormUpdate form) {
+    @Override
+    public UserDto login(String username, String password) {
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Sai tài khoản hoặc mật khẩu"));
+
+        // NOTE (làm sau): so sánh password thường, chưa mã hoá — chưa làm security/JWT
+        if (!user.getPassword().equals(password)) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Sai tài khoản hoặc mật khẩu");
+        }
+        if (user.getStatus() != UserStatus.ACTIVE) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Tài khoản đã bị khoá hoặc vô hiệu hoá");
+        }
+        return toDto(user);
+    }
+
+    @Override
+    public UserDto updateUser(Long id, UserFormUpdate form) {
         User user = userRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy user id=" + id));
 
-        user.setFullName(form.getFullName());
-        user.setPhone(form.getPhone());
+        if (form.getFullName() != null) user.setFullName(form.getFullName());
+        if (form.getPhone() != null) user.setPhone(form.getPhone());
 
-        User updatedUser = userRepository.save(user);
-        return new UserFormUpdate(
-                updatedUser.getFullName(),
-                updatedUser.getPhone()
-        );
+        return toDto(userRepository.save(user));
     }
 
     @Override
     public void deleteUser(Long id) {
-        // TODO Auto-generated method stub
-        
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy user id=" + id));
+        user.setStatus(UserStatus.INACTIVE); // xoá mềm, không xoá cứng
+        userRepository.save(user);
     }
 
     @Override
-    public Void changeUserStatus(Long id, String status) {
-        // TODO Auto-generated method stub
-        return null;
-    }
+    public UserDto changeUserStatus(Long id, String status) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy user id=" + id));
 
+        UserStatus newStatus;
+        try {
+            newStatus = UserStatus.valueOf(status.toUpperCase());
+        } catch (IllegalArgumentException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Status không hợp lệ: " + status);
+        }
+
+        user.setStatus(newStatus);
+        return toDto(userRepository.save(user));
+    }
 }
