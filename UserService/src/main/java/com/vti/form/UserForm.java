@@ -1,5 +1,15 @@
 package com.vti.form;
 
-public class UserForm {
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.Setter;
 
+@Getter @Setter
+@AllArgsConstructor 
+public class UserForm {
+    private String username;
+    private String email;
+    private String password;
+    private String fullName;
+    private String phone;
 }

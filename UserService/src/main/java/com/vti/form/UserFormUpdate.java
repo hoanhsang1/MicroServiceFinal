@@ -1,5 +1,12 @@
 package com.vti.form;
 
-public class UserFormUpdate {
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.Setter;
 
+@Getter @Setter
+@AllArgsConstructor 
+public class UserFormUpdate {
+    private String fullName;
+    private String phone;
 }

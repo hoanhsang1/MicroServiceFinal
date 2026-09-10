@@ -1,4 +1,4 @@
-package com.vti.APIGateway;
+package com.vti;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;

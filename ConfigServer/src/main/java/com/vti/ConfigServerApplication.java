@@ -1,4 +1,4 @@
-package com.vti.ConfigServer;
+package com.vti;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
