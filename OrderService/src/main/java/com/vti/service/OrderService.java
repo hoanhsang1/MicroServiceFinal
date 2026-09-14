@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import com.vti.client.dto.ProductClientDto;
 import com.vti.dto.OrderDto;
 import com.vti.dto.OrderItemDto;
 import com.vti.entity.Order;
@@ -19,6 +20,9 @@ import com.vti.form.OrderForm;
 import com.vti.form.OrderFormUpdate;
 import com.vti.form.OrderItemForm;
 import com.vti.repository.IOrderRepository;
+import com.vti.client.ProductClient;
+
+import feign.FeignException;
 
 @Service
 public class OrderService implements IOrderService {
@@ -64,13 +68,24 @@ public class OrderService implements IOrderService {
         List<OrderItems> orderItems = new ArrayList<>();
 
         for (OrderItemForm itemForm : form.getItems()) {
-            // ==========================================================================
-            // TODO (làm sau - phần liên service): CHƯA gọi sang ProductService.
-            // Cần gọi GET /products/{id} lấy price thật + kiểm tra tồn kho,
-            // rồi PATCH /products/{id}/quantity (delta âm) để trừ kho.
-            // Hiện đang để price = 0 nên total_amount SẼ SAI — chỉ để test cấu trúc CRUD trước.
-            // ==========================================================================
-            BigDecimal price = BigDecimal.ZERO;
+            ProductClientDto product;
+            try {
+                product = productClient.getProductById(itemForm.getProductId());
+            } catch (FeignException.NotFound e) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Sản phẩm id=" + itemForm.getProductId() + " không tồn tại");
+            }
+
+            if (!"AVAILABLE".equals(product.getStatus())) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Sản phẩm '" + product.getName() + "' hiện không khả dụng");
+            }
+            if (product.getQuantity() < itemForm.getQuantity()) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Sản phẩm '" + product.getName() + "' không đủ tồn kho");
+            }
+
+            BigDecimal price = product.getPrice();
             BigDecimal subtotal = price.multiply(BigDecimal.valueOf(itemForm.getQuantity()));
             total = total.add(subtotal);
 
@@ -81,6 +96,9 @@ public class OrderService implements IOrderService {
                     .price(price)
                     .subtotal(subtotal)
                     .build());
+
+            // trừ kho ngay khi tạo order thành công (delta âm)
+            productClient.updateQuantity(itemForm.getProductId(), -itemForm.getQuantity());
         }
 
         order.setItems(orderItems);
@@ -131,7 +149,10 @@ public class OrderService implements IOrderService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Chỉ có thể huỷ đơn khi đang PENDING");
         }
 
-        // TODO (làm sau): hoàn lại tồn kho bên ProductService cho từng item trong order.getItems()
+        // hoàn lại tồn kho (delta dương)
+        for (OrderItems item : order.getItems()) {
+            productClient.updateQuantity(item.getProductId(), item.getQuantity());
+        }
 
         order.setStatus(OrderStatus.CANCELLED);
         orderRepository.save(order);
