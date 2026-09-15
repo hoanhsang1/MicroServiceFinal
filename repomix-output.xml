@@ -281,53 +281,12 @@ UserService/
   mvnw
   mvnw.cmd
   pom.xml
-Báo cáo Mở đầu và Chương 1 - Sổ học bạ điện tử THCS Minh Khai.docx
 db.sql
 start-all.bat
 </directory_structure>
 
 <files>
 This section contains the contents of the repository's files.
-
-<file path="OrderService/src/main/java/com/vti/client/dto/ProductClientDto.java">
-package com.vti.client.dto;
-
-import java.math.BigDecimal;
-import lombok.Getter;
-import lombok.Setter;
-
-@Getter @Setter
-public class ProductClientDto {
-    private Long id;
-    private String name;
-    private BigDecimal price;
-    private Integer quantity;
-    private String status; // AVAILABLE, OUT_OF_STOCK, INACTIVE
-}
-</file>
-
-<file path="OrderService/src/main/java/com/vti/client/ProductClient.java">
-package com.vti.client;
-
-import org.springframework.cloud.openfeign.FeignClient;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PatchMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestBody;
-
-import com.vti.client.dto.ProductClientDto;
-
-// "product-service" phải KHỚP với spring.application.name bên ProductService
-@FeignClient(name = "ProductService")
-public interface ProductClient {
-
-    @GetMapping("/api/v1/products/{id}")
-    ProductClientDto getProductById(@PathVariable("id") Long id);
-
-    @PatchMapping("/api/v1/products/{id}/quantity")
-    ProductClientDto updateQuantity(@PathVariable("id") Long id, @RequestBody Integer delta);
-}
-</file>
 
 <file path="APIGateway/.mvn/wrapper/maven-wrapper.properties">
 # Licensed to the Apache Software Foundation (ASF) under one
@@ -2062,6 +2021,46 @@ Write-Output "MVN_CMD=$MAVEN_HOME/bin/$MVN_CMD"
 wrapperVersion=3.3.2
 distributionType=only-script
 distributionUrl=https://repo.maven.apache.org/maven2/org/apache/maven/apache-maven/3.9.10/apache-maven-3.9.10-bin.zip
+</file>
+
+<file path="OrderService/src/main/java/com/vti/client/dto/ProductClientDto.java">
+package com.vti.client.dto;
+
+import java.math.BigDecimal;
+import lombok.Getter;
+import lombok.Setter;
+
+@Getter @Setter
+public class ProductClientDto {
+    private Long id;
+    private String name;
+    private BigDecimal price;
+    private Integer quantity;
+    private String status; // AVAILABLE, OUT_OF_STOCK, INACTIVE
+}
+</file>
+
+<file path="OrderService/src/main/java/com/vti/client/ProductClient.java">
+package com.vti.client;
+
+import org.springframework.cloud.openfeign.FeignClient;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestBody;
+
+import com.vti.client.dto.ProductClientDto;
+
+// "product-service" phải KHỚP với spring.application.name bên ProductService
+@FeignClient(name = "ProductService")
+public interface ProductClient {
+
+    @GetMapping("/api/v1/products/{id}")
+    ProductClientDto getProductById(@PathVariable("id") Long id);
+
+    @PatchMapping("/api/v1/products/{id}/quantity")
+    ProductClientDto updateQuantity(@PathVariable("id") Long id, @RequestBody Integer delta);
+}
 </file>
 
 <file path="OrderService/src/main/java/com/vti/dto/OrderItemDto.java">
@@ -4846,192 +4845,6 @@ public interface IOrderService {
 }
 </file>
 
-<file path="OrderService/src/main/java/com/vti/service/OrderService.java">
-package com.vti.service;
-
-import java.math.BigDecimal;
-import java.util.ArrayList;
-import java.util.List;
-
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpStatus;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.server.ResponseStatusException;
-
-import com.vti.client.dto.ProductClientDto;
-import com.vti.dto.OrderDto;
-import com.vti.dto.OrderItemDto;
-import com.vti.entity.Order;
-import com.vti.entity.OrderItems;
-import com.vti.entity.enums.OrderStatus;
-import com.vti.form.OrderForm;
-import com.vti.form.OrderFormUpdate;
-import com.vti.form.OrderItemForm;
-import com.vti.repository.IOrderRepository;
-import com.vti.client.ProductClient;
-
-import feign.FeignException;
-
-@Service
-public class OrderService implements IOrderService {
-
-    @Autowired
-    private IOrderRepository orderRepository;
-
-    private OrderDto toDto(Order order) {
-        List<OrderItemDto> items = order.getItems() == null ? List.of() :
-                order.getItems().stream()
-                        .map(i -> OrderItemDto.builder()
-                                .id(i.getId())
-                                .productId(i.getProductId())
-                                .quantity(i.getQuantity())
-                                .price(i.getPrice())
-                                .subtotal(i.getSubtotal())
-                                .build())
-                        .toList();
-
-        return OrderDto.builder()
-                .id(order.getId())
-                .userId(order.getUserId())
-                .totalAmount(order.getTotalAmount())
-                .status(order.getStatus())
-                .shippingAddress(order.getShippingAddress())
-                .items(items)
-                .createdAt(order.getCreatedAt())
-                .updatedAt(order.getUpdatedAt())
-                .build();
-    }
-
-    @Override
-    @Transactional
-    public OrderDto createOrder(OrderForm form) {
-        Order order = Order.builder()
-                .userId(form.getUserId())
-                .shippingAddress(form.getShippingAddress())
-                .status(OrderStatus.PENDING)
-                .totalAmount(BigDecimal.ZERO)
-                .build();
-
-        BigDecimal total = BigDecimal.ZERO;
-        List<OrderItems> orderItems = new ArrayList<>();
-
-        for (OrderItemForm itemForm : form.getItems()) {
-            ProductClientDto product;
-            try {
-                product = productClient.getProductById(itemForm.getProductId());
-            } catch (FeignException.NotFound e) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                        "Sản phẩm id=" + itemForm.getProductId() + " không tồn tại");
-            }
-
-            if (!"AVAILABLE".equals(product.getStatus())) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                        "Sản phẩm '" + product.getName() + "' hiện không khả dụng");
-            }
-            if (product.getQuantity() < itemForm.getQuantity()) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                        "Sản phẩm '" + product.getName() + "' không đủ tồn kho");
-            }
-
-            BigDecimal price = product.getPrice();
-            BigDecimal subtotal = price.multiply(BigDecimal.valueOf(itemForm.getQuantity()));
-            total = total.add(subtotal);
-
-            orderItems.add(OrderItems.builder()
-                    .order(order)
-                    .productId(itemForm.getProductId())
-                    .quantity(itemForm.getQuantity())
-                    .price(price)
-                    .subtotal(subtotal)
-                    .build());
-
-            // trừ kho ngay khi tạo order thành công (delta âm)
-            productClient.updateQuantity(itemForm.getProductId(), -itemForm.getQuantity());
-        }
-
-        order.setItems(orderItems);
-        order.setTotalAmount(total);
-
-        return toDto(orderRepository.save(order));
-    }
-
-    @Override
-    public OrderDto getOrderById(Long id) {
-        Order order = orderRepository.findById(id)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy đơn hàng id=" + id));
-        return toDto(order);
-    }
-
-    @Override
-    public List<OrderDto> getOrdersByUserId(Long userId) {
-        return orderRepository.findByUserIdOrderByCreatedAtDesc(userId).stream()
-                .map(this::toDto)
-                .toList();
-    }
-
-    @Override
-    public OrderDto updateOrderStatus(Long id, OrderStatus status) {
-        Order order = orderRepository.findById(id)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy đơn hàng id=" + id));
-        order.setStatus(status);
-        return toDto(orderRepository.save(order));
-    }
-
-    @Override
-    public OrderDto updateOrder(Long id, OrderFormUpdate form) {
-        Order order = orderRepository.findById(id)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy đơn hàng id=" + id));
-        if (form.getShippingAddress() != null) {
-            order.setShippingAddress(form.getShippingAddress());
-        }
-        return toDto(orderRepository.save(order));
-    }
-
-    @Override
-    @Transactional
-    public void cancelOrder(Long id) {
-        Order order = orderRepository.findById(id)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy đơn hàng id=" + id));
-
-        if (order.getStatus() != OrderStatus.PENDING) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Chỉ có thể huỷ đơn khi đang PENDING");
-        }
-
-        // hoàn lại tồn kho (delta dương)
-        for (OrderItems item : order.getItems()) {
-            productClient.updateQuantity(item.getProductId(), item.getQuantity());
-        }
-
-        order.setStatus(OrderStatus.CANCELLED);
-        orderRepository.save(order);
-    }
-}
-</file>
-
-<file path="OrderService/src/main/java/com/vti/OrderServiceApplication.java">
-package com.vti;
-
-import org.springframework.boot.SpringApplication;
-import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
-import org.springframework.cloud.openfeign.EnableFeignClients;
-
-
-// Generated by https://start.springboot.io
-// 优质的 spring/boot/data/security/cloud 框架中文文档尽在 => https://springdoc.cn
-@SpringBootApplication
-@EnableDiscoveryClient 
-@EnableFeignClients
-public class OrderServiceApplication {
-
-	public static void main(String[] args) {
-		SpringApplication.run(OrderServiceApplication.class, args);
-	}
-
-}
-</file>
-
 <file path="OrderService/src/main/resources/application.properties">
 spring.application.name=OrderService
 
@@ -5042,123 +4855,6 @@ server.port=8084
 # Database
 # -----------------------
 spring.datasource.url=jdbc:mysql://localhost:3306/order_db?createDatabaseIfNotExist=true
-</file>
-
-<file path="OrderService/pom.xml">
-<?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
-	<modelVersion>4.0.0</modelVersion>
-	<parent>
-		<groupId>org.springframework.boot</groupId>
-		<artifactId>spring-boot-starter-parent</artifactId>
-		<version>3.1.8</version>
-		<relativePath/> <!-- lookup parent from repository -->
-	</parent>
-
-  <!-- Generated by https://start.springboot.io -->
-  <!-- 优质的 spring/boot/data/security/cloud 框架中文文档尽在 => https://springdoc.cn -->
-	<groupId>com.vti</groupId>
-	<artifactId>OrderService</artifactId>
-	<version>0.0.1-SNAPSHOT</version>
-	<name>OrderService</name>
-	<description>Demo project for Spring Boot</description>
-	<url/>
-	<licenses>
-		<license/>
-	</licenses>
-	<developers>
-		<developer/>
-	</developers>
-	<scm>
-		<connection/>
-		<developerConnection/>
-		<tag/>
-		<url/>
-	</scm>
-	<properties>
-		<java.version>17</java.version>
-		<spring-cloud.version>2022.0.5</spring-cloud.version>
-
-	</properties>
-	<dependencyManagement>
-		<dependencies>
-			<dependency>
-				<groupId>org.springframework.cloud</groupId>
-				<artifactId>spring-cloud-dependencies</artifactId>
-				<version>${spring-cloud.version}</version>
-				<type>pom</type>
-				<scope>import</scope>
-			</dependency>
-		</dependencies>
-	</dependencyManagement>
-	<dependencies>
-		<dependency>
-			<groupId>org.springframework.boot</groupId>
-			<artifactId>spring-boot-starter-data-jpa</artifactId>
-		</dependency>
-		<dependency>
-			<groupId>org.springframework.boot</groupId>
-			<artifactId>spring-boot-starter-web</artifactId>
-		</dependency>
-		<dependency>
-			<groupId>org.springframework.boot</groupId>
-			<artifactId>spring-boot-devtools</artifactId>
-			<scope>runtime</scope>
-			<optional>true</optional>
-		</dependency>
-		<dependency>
-            <groupId>org.springframework.cloud</groupId>
-            <artifactId>spring-cloud-starter-netflix-eureka-client</artifactId>
-        </dependency>
-		<dependency>
-            <groupId>org.springframework.cloud</groupId>
-            <artifactId>spring-cloud-starter-config</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.springframework.cloud</groupId>
-            <artifactId>spring-cloud-starter-bootstrap</artifactId>
-        </dependency>
-		<dependency>
-			<groupId>org.springframework.cloud</groupId>
-			<artifactId>spring-cloud-starter-openfeign</artifactId>
-		</dependency>
-		<dependency>
-			<groupId>com.mysql</groupId>
-			<artifactId>mysql-connector-j</artifactId>
-			<scope>runtime</scope>
-		</dependency>
-		<dependency>
-			<groupId>org.projectlombok</groupId>
-			<artifactId>lombok</artifactId>
-			<optional>true</optional>
-		</dependency>
-		<dependency>
-			<groupId>org.springframework.boot</groupId>
-			<artifactId>spring-boot-starter-test</artifactId>
-			<scope>test</scope>
-		</dependency>
-	</dependencies>
-
-	<build>
-		<plugins>
-			
-			<plugin>
-				<groupId>org.springframework.boot</groupId>
-				<artifactId>spring-boot-maven-plugin</artifactId>
-				<configuration>
-					<excludes>
-						<exclude>
-							<groupId>org.projectlombok</groupId>
-							<artifactId>lombok</artifactId>
-						</exclude>
-					</excludes>
-				</configuration>
-			</plugin>
-		</plugins>
-	</build>
-
-</project>
 </file>
 
 <file path="PaymentService/src/main/java/com/vti/controller/PaymentController.java">
@@ -5456,29 +5152,6 @@ public class PaymentService implements IPaymentService {
 }
 </file>
 
-<file path="PaymentService/src/main/java/com/vti/PaymentServiceApplication.java">
-package com.vti;
-
-import org.springframework.boot.SpringApplication;
-import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
-import org.springframework.cloud.openfeign.EnableFeignClients;
-
-
-// Generated by https://start.springboot.io
-// 优质的 spring/boot/data/security/cloud 框架中文文档尽在 => https://springdoc.cn
-@SpringBootApplication
-@EnableDiscoveryClient 
-@EnableFeignClients
-public class PaymentServiceApplication {
-
-	public static void main(String[] args) {
-		SpringApplication.run(PaymentServiceApplication.class, args);
-	}
-
-}
-</file>
-
 <file path="PaymentService/src/main/resources/application.properties">
 spring.application.name=PaymentService
 
@@ -5489,124 +5162,6 @@ server.port=8083
 # Database
 # -----------------------
 spring.datasource.url=jdbc:mysql://localhost:3306/payment_db?createDatabaseIfNotExist=true
-</file>
-
-<file path="PaymentService/pom.xml">
-<?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
-	<modelVersion>4.0.0</modelVersion>
-	<parent>
-		<groupId>org.springframework.boot</groupId>
-		<artifactId>spring-boot-starter-parent</artifactId>
-		<version>3.1.8</version>
-		<relativePath/> <!-- lookup parent from repository -->
-	</parent>
-
-  <!-- Generated by https://start.springboot.io -->
-  <!-- 优质的 spring/boot/data/security/cloud 框架中文文档尽在 => https://springdoc.cn -->
-	<groupId>com.vti</groupId>
-	<artifactId>PaymentService</artifactId>
-	<version>0.0.1-SNAPSHOT</version>
-	<name>PaymentService</name>
-	<description>Demo project for Spring Boot</description>
-	<url/>
-	<licenses>
-		<license/>
-	</licenses>
-	<developers>
-		<developer/>
-	</developers>
-	<scm>
-		<connection/>
-		<developerConnection/>
-		<tag/>
-		<url/>
-	</scm>
-	<properties>
-		<java.version>17</java.version>
-		<spring-cloud.version>2022.0.5</spring-cloud.version>
-
-	</properties>
-	<dependencyManagement>
-		<dependencies>
-			<dependency>
-				<groupId>org.springframework.cloud</groupId>
-				<artifactId>spring-cloud-dependencies</artifactId>
-				<version>${spring-cloud.version}</version>
-				<type>pom</type>
-				<scope>import</scope>
-			</dependency>
-		</dependencies>
-	</dependencyManagement>
-	<dependencies>
-		<dependency>
-			<groupId>org.springframework.boot</groupId>
-			<artifactId>spring-boot-starter-data-jpa</artifactId>
-		</dependency>
-		<dependency>
-			<groupId>org.springframework.boot</groupId>
-			<artifactId>spring-boot-starter-web</artifactId>
-		</dependency>
-		<dependency>
-			<groupId>org.springframework.boot</groupId>
-			<artifactId>spring-boot-devtools</artifactId>
-			<scope>runtime</scope>
-			<optional>true</optional>
-		</dependency>
-		<dependency>
-            <groupId>org.springframework.cloud</groupId>
-            <artifactId>spring-cloud-starter-netflix-eureka-client</artifactId>
-        </dependency>
-		<dependency>
-            <groupId>org.springframework.cloud</groupId>
-            <artifactId>spring-cloud-starter-config</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.springframework.cloud</groupId>
-            <artifactId>spring-cloud-starter-bootstrap</artifactId>
-        </dependency>
-		<dependency>
-			<groupId>org.springframework.cloud</groupId>
-			<artifactId>spring-cloud-starter-openfeign</artifactId>
-		</dependency>
-
-		<dependency>
-			<groupId>com.mysql</groupId>
-			<artifactId>mysql-connector-j</artifactId>
-			<scope>runtime</scope>
-		</dependency>
-		<dependency>
-			<groupId>org.projectlombok</groupId>
-			<artifactId>lombok</artifactId>
-			<optional>true</optional>
-		</dependency>
-		<dependency>
-			<groupId>org.springframework.boot</groupId>
-			<artifactId>spring-boot-starter-test</artifactId>
-			<scope>test</scope>
-		</dependency>
-	</dependencies>
-
-	<build>
-		<plugins>
-			
-			<plugin>
-				<groupId>org.springframework.boot</groupId>
-				<artifactId>spring-boot-maven-plugin</artifactId>
-				<configuration>
-					<excludes>
-						<exclude>
-							<groupId>org.projectlombok</groupId>
-							<artifactId>lombok</artifactId>
-						</exclude>
-					</excludes>
-				</configuration>
-			</plugin>
-		</plugins>
-	</build>
-
-</project>
 </file>
 
 <file path="ProductService/src/main/java/com/vti/controller/ProductController.java">
@@ -6338,6 +5893,450 @@ spring.datasource.url=jdbc:mysql://localhost:3306/user_db?createDatabaseIfNotExi
             <version>4.1.3</version>
         </dependency>
 
+
+		<dependency>
+			<groupId>com.mysql</groupId>
+			<artifactId>mysql-connector-j</artifactId>
+			<scope>runtime</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.projectlombok</groupId>
+			<artifactId>lombok</artifactId>
+			<optional>true</optional>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-test</artifactId>
+			<scope>test</scope>
+		</dependency>
+	</dependencies>
+
+	<build>
+		<plugins>
+			
+			<plugin>
+				<groupId>org.springframework.boot</groupId>
+				<artifactId>spring-boot-maven-plugin</artifactId>
+				<configuration>
+					<excludes>
+						<exclude>
+							<groupId>org.projectlombok</groupId>
+							<artifactId>lombok</artifactId>
+						</exclude>
+					</excludes>
+				</configuration>
+			</plugin>
+		</plugins>
+	</build>
+
+</project>
+</file>
+
+<file path="OrderService/src/main/java/com/vti/service/OrderService.java">
+package com.vti.service;
+
+import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.List;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
+
+import com.vti.client.dto.ProductClientDto;
+import com.vti.dto.OrderDto;
+import com.vti.dto.OrderItemDto;
+import com.vti.entity.Order;
+import com.vti.entity.OrderItems;
+import com.vti.entity.enums.OrderStatus;
+import com.vti.form.OrderForm;
+import com.vti.form.OrderFormUpdate;
+import com.vti.form.OrderItemForm;
+import com.vti.repository.IOrderRepository;
+import com.vti.client.ProductClient;
+
+import feign.FeignException;
+
+@Service
+public class OrderService implements IOrderService {
+
+    @Autowired
+    private IOrderRepository orderRepository;
+
+    private OrderDto toDto(Order order) {
+        List<OrderItemDto> items = order.getItems() == null ? List.of() :
+                order.getItems().stream()
+                        .map(i -> OrderItemDto.builder()
+                                .id(i.getId())
+                                .productId(i.getProductId())
+                                .quantity(i.getQuantity())
+                                .price(i.getPrice())
+                                .subtotal(i.getSubtotal())
+                                .build())
+                        .toList();
+
+        return OrderDto.builder()
+                .id(order.getId())
+                .userId(order.getUserId())
+                .totalAmount(order.getTotalAmount())
+                .status(order.getStatus())
+                .shippingAddress(order.getShippingAddress())
+                .items(items)
+                .createdAt(order.getCreatedAt())
+                .updatedAt(order.getUpdatedAt())
+                .build();
+    }
+
+    @Override
+    @Transactional
+    public OrderDto createOrder(OrderForm form) {
+        Order order = Order.builder()
+                .userId(form.getUserId())
+                .shippingAddress(form.getShippingAddress())
+                .status(OrderStatus.PENDING)
+                .totalAmount(BigDecimal.ZERO)
+                .build();
+
+        BigDecimal total = BigDecimal.ZERO;
+        List<OrderItems> orderItems = new ArrayList<>();
+
+        for (OrderItemForm itemForm : form.getItems()) {
+            ProductClientDto product;
+            try {
+                product = productClient.getProductById(itemForm.getProductId());
+            } catch (FeignException.NotFound e) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Sản phẩm id=" + itemForm.getProductId() + " không tồn tại");
+            }
+
+            if (!"AVAILABLE".equals(product.getStatus())) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Sản phẩm '" + product.getName() + "' hiện không khả dụng");
+            }
+            if (product.getQuantity() < itemForm.getQuantity()) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Sản phẩm '" + product.getName() + "' không đủ tồn kho");
+            }
+
+            BigDecimal price = product.getPrice();
+            BigDecimal subtotal = price.multiply(BigDecimal.valueOf(itemForm.getQuantity()));
+            total = total.add(subtotal);
+
+            orderItems.add(OrderItems.builder()
+                    .order(order)
+                    .productId(itemForm.getProductId())
+                    .quantity(itemForm.getQuantity())
+                    .price(price)
+                    .subtotal(subtotal)
+                    .build());
+
+            // trừ kho ngay khi tạo order thành công (delta âm)
+            productClient.updateQuantity(itemForm.getProductId(), -itemForm.getQuantity());
+        }
+
+        order.setItems(orderItems);
+        order.setTotalAmount(total);
+
+        return toDto(orderRepository.save(order));
+    }
+
+    @Override
+    public OrderDto getOrderById(Long id) {
+        Order order = orderRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy đơn hàng id=" + id));
+        return toDto(order);
+    }
+
+    @Override
+    public List<OrderDto> getOrdersByUserId(Long userId) {
+        return orderRepository.findByUserIdOrderByCreatedAtDesc(userId).stream()
+                .map(this::toDto)
+                .toList();
+    }
+
+    @Override
+    public OrderDto updateOrderStatus(Long id, OrderStatus status) {
+        Order order = orderRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy đơn hàng id=" + id));
+        order.setStatus(status);
+        return toDto(orderRepository.save(order));
+    }
+
+    @Override
+    public OrderDto updateOrder(Long id, OrderFormUpdate form) {
+        Order order = orderRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy đơn hàng id=" + id));
+        if (form.getShippingAddress() != null) {
+            order.setShippingAddress(form.getShippingAddress());
+        }
+        return toDto(orderRepository.save(order));
+    }
+
+    @Override
+    @Transactional
+    public void cancelOrder(Long id) {
+        Order order = orderRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy đơn hàng id=" + id));
+
+        if (order.getStatus() != OrderStatus.PENDING) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Chỉ có thể huỷ đơn khi đang PENDING");
+        }
+
+        // hoàn lại tồn kho (delta dương)
+        for (OrderItems item : order.getItems()) {
+            productClient.updateQuantity(item.getProductId(), item.getQuantity());
+        }
+
+        order.setStatus(OrderStatus.CANCELLED);
+        orderRepository.save(order);
+    }
+}
+</file>
+
+<file path="OrderService/src/main/java/com/vti/OrderServiceApplication.java">
+package com.vti;
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
+import org.springframework.cloud.openfeign.EnableFeignClients;
+
+
+// Generated by https://start.springboot.io
+// 优质的 spring/boot/data/security/cloud 框架中文文档尽在 => https://springdoc.cn
+@SpringBootApplication
+@EnableDiscoveryClient 
+@EnableFeignClients
+public class OrderServiceApplication {
+
+	public static void main(String[] args) {
+		SpringApplication.run(OrderServiceApplication.class, args);
+	}
+
+}
+</file>
+
+<file path="OrderService/pom.xml">
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+	<parent>
+		<groupId>org.springframework.boot</groupId>
+		<artifactId>spring-boot-starter-parent</artifactId>
+		<version>3.1.8</version>
+		<relativePath/> <!-- lookup parent from repository -->
+	</parent>
+
+  <!-- Generated by https://start.springboot.io -->
+  <!-- 优质的 spring/boot/data/security/cloud 框架中文文档尽在 => https://springdoc.cn -->
+	<groupId>com.vti</groupId>
+	<artifactId>OrderService</artifactId>
+	<version>0.0.1-SNAPSHOT</version>
+	<name>OrderService</name>
+	<description>Demo project for Spring Boot</description>
+	<url/>
+	<licenses>
+		<license/>
+	</licenses>
+	<developers>
+		<developer/>
+	</developers>
+	<scm>
+		<connection/>
+		<developerConnection/>
+		<tag/>
+		<url/>
+	</scm>
+	<properties>
+		<java.version>17</java.version>
+		<spring-cloud.version>2022.0.5</spring-cloud.version>
+
+	</properties>
+	<dependencyManagement>
+		<dependencies>
+			<dependency>
+				<groupId>org.springframework.cloud</groupId>
+				<artifactId>spring-cloud-dependencies</artifactId>
+				<version>${spring-cloud.version}</version>
+				<type>pom</type>
+				<scope>import</scope>
+			</dependency>
+		</dependencies>
+	</dependencyManagement>
+	<dependencies>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-data-jpa</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-web</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-devtools</artifactId>
+			<scope>runtime</scope>
+			<optional>true</optional>
+		</dependency>
+		<dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-netflix-eureka-client</artifactId>
+        </dependency>
+		<dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-config</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-bootstrap</artifactId>
+        </dependency>
+		<dependency>
+			<groupId>org.springframework.cloud</groupId>
+			<artifactId>spring-cloud-starter-openfeign</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>com.mysql</groupId>
+			<artifactId>mysql-connector-j</artifactId>
+			<scope>runtime</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.projectlombok</groupId>
+			<artifactId>lombok</artifactId>
+			<optional>true</optional>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-test</artifactId>
+			<scope>test</scope>
+		</dependency>
+	</dependencies>
+
+	<build>
+		<plugins>
+			
+			<plugin>
+				<groupId>org.springframework.boot</groupId>
+				<artifactId>spring-boot-maven-plugin</artifactId>
+				<configuration>
+					<excludes>
+						<exclude>
+							<groupId>org.projectlombok</groupId>
+							<artifactId>lombok</artifactId>
+						</exclude>
+					</excludes>
+				</configuration>
+			</plugin>
+		</plugins>
+	</build>
+
+</project>
+</file>
+
+<file path="PaymentService/src/main/java/com/vti/PaymentServiceApplication.java">
+package com.vti;
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
+import org.springframework.cloud.openfeign.EnableFeignClients;
+
+
+// Generated by https://start.springboot.io
+// 优质的 spring/boot/data/security/cloud 框架中文文档尽在 => https://springdoc.cn
+@SpringBootApplication
+@EnableDiscoveryClient 
+@EnableFeignClients
+public class PaymentServiceApplication {
+
+	public static void main(String[] args) {
+		SpringApplication.run(PaymentServiceApplication.class, args);
+	}
+
+}
+</file>
+
+<file path="PaymentService/pom.xml">
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+	<parent>
+		<groupId>org.springframework.boot</groupId>
+		<artifactId>spring-boot-starter-parent</artifactId>
+		<version>3.1.8</version>
+		<relativePath/> <!-- lookup parent from repository -->
+	</parent>
+
+  <!-- Generated by https://start.springboot.io -->
+  <!-- 优质的 spring/boot/data/security/cloud 框架中文文档尽在 => https://springdoc.cn -->
+	<groupId>com.vti</groupId>
+	<artifactId>PaymentService</artifactId>
+	<version>0.0.1-SNAPSHOT</version>
+	<name>PaymentService</name>
+	<description>Demo project for Spring Boot</description>
+	<url/>
+	<licenses>
+		<license/>
+	</licenses>
+	<developers>
+		<developer/>
+	</developers>
+	<scm>
+		<connection/>
+		<developerConnection/>
+		<tag/>
+		<url/>
+	</scm>
+	<properties>
+		<java.version>17</java.version>
+		<spring-cloud.version>2022.0.5</spring-cloud.version>
+
+	</properties>
+	<dependencyManagement>
+		<dependencies>
+			<dependency>
+				<groupId>org.springframework.cloud</groupId>
+				<artifactId>spring-cloud-dependencies</artifactId>
+				<version>${spring-cloud.version}</version>
+				<type>pom</type>
+				<scope>import</scope>
+			</dependency>
+		</dependencies>
+	</dependencyManagement>
+	<dependencies>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-data-jpa</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-web</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-devtools</artifactId>
+			<scope>runtime</scope>
+			<optional>true</optional>
+		</dependency>
+		<dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-netflix-eureka-client</artifactId>
+        </dependency>
+		<dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-config</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-bootstrap</artifactId>
+        </dependency>
+		<dependency>
+			<groupId>org.springframework.cloud</groupId>
+			<artifactId>spring-cloud-starter-openfeign</artifactId>
+		</dependency>
 
 		<dependency>
 			<groupId>com.mysql</groupId>
