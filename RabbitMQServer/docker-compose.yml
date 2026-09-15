@@ -1,0 +1,19 @@
+version: '3.8'
+services:
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - ./data:/var/lib/rabbitmq:rw
+      - ./logs:/var/log/rabbitmq:rw
+    environment:
+      - RABBITMQ_DEFAULT_USER=admin
+      - RABBITMQ_DEFAULT_PASSWORD=admin
+    networks:
+      - spring-microservice
+networks:
+  spring-microservice:
+    external: true

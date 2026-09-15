@@ -1,5 +1,10 @@
 package com.vti.form;
 
-public class AuthRequest {
+import lombok.Getter;
+import lombok.Setter;
 
+@Getter @Setter
+public class AuthRequest {
+    private String username;
+    private String password;
 }

@@ -35,6 +35,9 @@ echo Starting PaymentService...
 start "PaymentService" cmd /k "cd /d D:\User\downloads\Assignment_VTi\javacore\DTN2601\MicroServiceFinal\PaymentService && mvn spring-boot:run"
 
 echo Starting PaymentService...
+start "PaymentService" cmd /k "cd /d D:\User\downloads\Assignment_VTi\javacore\DTN2601\MicroServiceFinal\AuthService && mvn spring-boot:run"
+
+echo Starting PaymentService...
 start "PaymentService" cmd /k "cd /d D:\User\downloads\Assignment_VTi\javacore\DTN2601\MicroServiceFinal\APIGateway && mvn spring-boot:run"
 
 echo All services started.

@@ -1,5 +1,10 @@
 package com.vti.service;
 
-public interface IAuthService {
+import com.vti.entity.User;
+import com.vti.form.AuthRequest;
+import com.vti.form.RegisterRequest;
 
+public interface IAuthService {
+    String login(AuthRequest request);
+    User register(RegisterRequest request);
 }
