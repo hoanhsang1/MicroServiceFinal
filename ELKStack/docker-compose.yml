@@ -1,0 +1,63 @@
+version: '3.8'
+
+# ELK Stack cho dự án MicroServiceFinal
+# - Elasticsearch: lưu trữ + tìm kiếm dữ liệu
+# - Kibana: giao diện xem dữ liệu / dashboard
+# - Logstash: đọc dữ liệu từ MySQL (bảng users trong user_db) và đẩy vào Elasticsearch
+#
+# Cách chạy:
+#   1. Đặt file mysql-connector-java-8.0.26.jar vào cùng thư mục này
+#      (tải tại: https://repo1.maven.org/maven2/mysql/mysql-connector-java/8.0.26/)
+#   2. docker compose up -d
+
+services:
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.4.3
+    container_name: elasticsearch
+    restart: unless-stopped
+    environment:
+      - xpack.security.enabled=false
+      - discovery.type=single-node
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
+    cap_add:
+      - IPC_LOCK
+    volumes:
+      - elasticsearch-data:/usr/share/elasticsearch/data
+    ports:
+      - '9200:9200'
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.4.3
+    container_name: kibana
+    restart: unless-stopped
+    ports:
+      - '5601:5601'
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+    depends_on:
+      - elasticsearch
+
+  logstash:
+    image: docker.elastic.co/logstash/logstash:8.4.3
+    container_name: logstash
+    ports:
+      - '5044:5044'
+    environment:
+      - NODE_NAME=logstash
+    volumes:
+      - ./logstash-data:/usr/share/logstash/data
+      - ./logstash.conf:/usr/share/logstash/pipeline/logstash.conf
+      - ./mysql-connector-java-8.0.26.jar:/usr/share/logstash/logstash-core/lib/mysql-connector-java-8.0.26.jar
+    command: logstash -f /usr/share/logstash/pipeline/logstash.conf
+    depends_on:
+      - elasticsearch
+    mem_limit: 1073741824
+
+volumes:
+  elasticsearch-data:
