@@ -10,5 +10,5 @@ public class ProductClientDto {
     private String name;
     private BigDecimal price;
     private Integer quantity;
-    private String status; // AVAILABLE, OUT_OF_STOCK, INACTIVE
+    private String status;
 }

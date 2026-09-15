@@ -30,6 +30,9 @@ public class OrderService implements IOrderService {
     @Autowired
     private IOrderRepository orderRepository;
 
+    @Autowired
+    private ProductClient productClient;
+
     private OrderDto toDto(Order order) {
         List<OrderItemDto> items = order.getItems() == null ? List.of() :
                 order.getItems().stream()

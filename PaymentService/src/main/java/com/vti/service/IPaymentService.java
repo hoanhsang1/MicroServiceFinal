@@ -2,7 +2,7 @@ package com.vti.service;
 
 import java.util.List;
 
-import com.vti.dto.PaymentDto;
+import com.vti.client.dto.PaymentDto;
 import com.vti.form.PaymentForm;
 import com.vti.form.PaymentFormUpdate;
 

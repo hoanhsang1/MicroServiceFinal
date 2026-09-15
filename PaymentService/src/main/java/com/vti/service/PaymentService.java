@@ -2,6 +2,7 @@ package com.vti.service;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -9,18 +10,25 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
-import com.vti.dto.PaymentDto;
+import com.vti.client.OrderClient;
+import com.vti.client.dto.OrderClientDto;
+import com.vti.client.dto.PaymentDto;
 import com.vti.entity.Payments;
 import com.vti.entity.enums.PaymentStatus;
 import com.vti.form.PaymentForm;
 import com.vti.form.PaymentFormUpdate;
 import com.vti.repository.IPaymentRepository;
 
+import feign.FeignException;
+
 @Service
 public class PaymentService implements IPaymentService {
 
     @Autowired
     private IPaymentRepository paymentRepository;
+
+    @Autowired
+    private OrderClient orderClient;
 
     private PaymentDto toDto(Payments p) {
         return PaymentDto.builder()
@@ -39,10 +47,27 @@ public class PaymentService implements IPaymentService {
 
     @Override
     public PaymentDto createPayment(PaymentForm form) {
-        // ==========================================================================
-        // TODO (làm sau - phần liên service): CHƯA gọi sang OrderService để verify
-        // order_id có tồn tại không, và amount có khớp order.total_amount hay không.
-        // ==========================================================================
+        OrderClientDto order;
+        try {
+            order = orderClient.getOrderById(form.getOrderId());
+        } catch (FeignException.NotFound e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Đơn hàng id=" + form.getOrderId() + " không tồn tại");
+        }
+
+        if ("CANCELLED".equals(order.getStatus())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Đơn hàng đã bị huỷ, không thể thanh toán");
+        }
+        if ("PAID".equals(order.getStatus()) || "COMPLETED".equals(order.getStatus())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Đơn hàng đã được thanh toán trước đó");
+        }
+        if (order.getTotalAmount().compareTo(form.getAmount()) != 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Số tiền thanh toán (" + form.getAmount() + ") không khớp với đơn hàng (" + order.getTotalAmount() + ")");
+        }
+
         Payments payment = Payments.builder()
                 .orderId(form.getOrderId())
                 .userId(form.getUserId())
@@ -78,7 +103,12 @@ public class PaymentService implements IPaymentService {
 
         if (form.getStatus() == PaymentStatus.SUCCESS) {
             payment.setPaidAt(LocalDateTime.now());
-            // TODO (làm sau): gọi PUT /orders/{orderId}/status bên OrderService, set status = PAID
+            try {
+                orderClient.updateStatus(payment.getOrderId(), Map.of("status", "PAID"));
+            } catch (FeignException e) {
+                throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,
+                        "Không thể cập nhật trạng thái đơn hàng id=" + payment.getOrderId());
+            }
         }
 
         return toDto(paymentRepository.save(payment));

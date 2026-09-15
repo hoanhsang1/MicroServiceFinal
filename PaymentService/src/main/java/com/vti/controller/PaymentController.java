@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.vti.dto.PaymentDto;
+import com.vti.client.dto.PaymentDto;
 import com.vti.form.PaymentForm;
 import com.vti.form.PaymentFormUpdate;
 import com.vti.service.IPaymentService;

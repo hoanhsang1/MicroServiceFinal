@@ -1,4 +1,4 @@
-package com.vti.dto;
+package com.vti.client.dto;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
