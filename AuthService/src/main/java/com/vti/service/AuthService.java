@@ -25,7 +25,7 @@ public class AuthService implements IAuthService {
         if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
             throw new RuntimeException("Invalid credentials");
         }
-        return jwtUtil.generateToken(user.getUsername(), user.getRole().name(), user.getUserId());
+        return jwtUtil.generateToken(user.getUsername(), user.getRole().name(), user.getId());
     }
 
     @Override
@@ -38,8 +38,7 @@ public class AuthService implements IAuthService {
         user.setEmail(request.getEmail());
         user.setPassword(passwordEncoder.encode(request.getPassword()));
         user.setFullName(request.getFullName());
-        user.setPhone(request.getPhone());
-        user.setUserId(request.getUserId()); // Set user ID from request if provided
+        user.setPhone(request.getPhone()); // Set user ID from request if provided
         user.setRole(request.getRole() != null ? request.getRole() : UserRole.USER); // Set role from request if provided
         User savedUser = userRepository.save(user);
 

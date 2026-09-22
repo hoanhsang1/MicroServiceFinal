@@ -27,4 +27,6 @@ public class RegisterRequest {
     @Pattern(regexp = "^\\+?[1-9]\\d{0,15}$", message = "Invalid phone number format")
     @Size (min = 10, max = 15, message = "Phone number must be between 10 and 15 characters")
     private String phone;
+
+    private String role; // Optional: can be set to "USER" or "ADMIN"
 }
