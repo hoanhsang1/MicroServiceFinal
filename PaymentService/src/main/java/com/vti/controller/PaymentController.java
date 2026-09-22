@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -36,12 +37,18 @@ public class PaymentController {
     }
 
     @GetMapping("/order/{orderId}")
-    public ResponseEntity<List<PaymentDto>> getByOrderId(@PathVariable Long orderId) {
-        return ResponseEntity.ok(paymentService.getPaymentsByOrderId(orderId));
+    public ResponseEntity<List<PaymentDto>> getByOrderId(
+        @PathVariable Long orderId,
+        @RequestHeader (value = "X-User-Id", required = false) Long userId,
+        @RequestHeader (value = "X-User-Role", required = false) String userRole) {
+        return ResponseEntity.ok(paymentService.getPaymentsByOrderId(orderId, userId, userRole));
     }
 
     @PutMapping("/{id}/status")
-    public ResponseEntity<PaymentDto> updateStatus(@PathVariable Long id, @RequestBody PaymentFormUpdate form) {
-        return ResponseEntity.ok(paymentService.updatePaymentStatus(id, form));
+    public ResponseEntity<PaymentDto> updateStatus(
+        @PathVariable Long id, 
+        @RequestBody PaymentFormUpdate form,
+        @RequestHeader (value = "X-User-Role", required = false) String userRole) {
+        return ResponseEntity.ok(paymentService.updatePaymentStatus(id, form, userRole));
     }
 }

@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import jakarta.validation.Valid;
 
 import com.vti.dto.UserDto;
 import com.vti.form.UserForm;
@@ -29,7 +30,7 @@ public class UserController {
     private IUserService userService;
 
     @PostMapping("/register")
-    public ResponseEntity<UserDto> register(@RequestBody UserForm form) {
+    public ResponseEntity<UserDto> register(@RequestBody @Valid UserForm form) {
         return ResponseEntity.status(HttpStatus.CREATED).body(userService.register(form));
     }
 
@@ -49,7 +50,7 @@ public class UserController {
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<UserDto> update(@PathVariable Long id, @RequestBody UserFormUpdate form) {
+    public ResponseEntity<UserDto> update(@PathVariable Long id, @RequestBody @Valid UserFormUpdate form) {
         return ResponseEntity.ok(userService.updateUser(id, form));
     }
 

@@ -111,9 +111,15 @@ public class OrderService implements IOrderService {
     }
 
     @Override
-    public OrderDto getOrderById(Long id) {
+    public OrderDto getOrderById(Long id, Long currentUserId, String currentUserRole) {
         Order order = orderRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy đơn hàng id=" + id));
+        boolean isOwner = order.getUserId().equals(currentUserId);
+        boolean isAdmin = "ADMIN".equals(currentUserRole);
+
+        if (!isOwner && !isAdmin) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Bạn không có quyền huỷ đơn hàng này");
+        }
         return toDto(order);
     }
 
@@ -125,34 +131,52 @@ public class OrderService implements IOrderService {
     }
 
     @Override
-    public OrderDto updateOrderStatus(Long id, OrderStatus status) {
+    public OrderDto updateOrderStatus(Long id, OrderStatus status, String currentUserRole, Long currentUserId) {
         Order order = orderRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy đơn hàng id=" + id));
         order.setStatus(status);
+        boolean isOwner = order.getUserId().equals(currentUserId);
+        boolean isAdmin = "ADMIN".equals(currentUserRole);
+
+        if (!isAdmin && !isOwner) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Bạn không có quyền cập nhật trạng thái đơn hàng này");
+        }
         return toDto(orderRepository.save(order));
     }
 
     @Override
-    public OrderDto updateOrder(Long id, OrderFormUpdate form) {
+    public OrderDto updateOrder(Long id, OrderFormUpdate form, Long currentUserId, String currentUserRole) {
         Order order = orderRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy đơn hàng id=" + id));
         if (form.getShippingAddress() != null) {
             order.setShippingAddress(form.getShippingAddress());
+        }
+        boolean isOwner = order.getUserId().equals(currentUserId);
+        boolean isAdmin = "ADMIN".equals(currentUserRole);
+
+        if (!isOwner && !isAdmin) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Bạn không có quyền cập nhật đơn hàng này");
         }
         return toDto(orderRepository.save(order));
     }
 
     @Override
     @Transactional
-    public void cancelOrder(Long id) {
+    public void cancelOrder(Long id, Long currentUserId, String currentUserRole) {
         Order order = orderRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy đơn hàng id=" + id));
+
+        boolean isOwner = order.getUserId().equals(currentUserId);
+        boolean isAdmin = "ADMIN".equals(currentUserRole);
+
+        if (!isOwner && !isAdmin) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Bạn không có quyền huỷ đơn hàng này");
+        }
 
         if (order.getStatus() != OrderStatus.PENDING) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Chỉ có thể huỷ đơn khi đang PENDING");
         }
 
-        // hoàn lại tồn kho (delta dương)
         for (OrderItems item : order.getItems()) {
             productClient.updateQuantity(item.getProductId(), item.getQuantity());
         }

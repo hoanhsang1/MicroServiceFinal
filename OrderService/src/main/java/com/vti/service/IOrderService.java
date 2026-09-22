@@ -9,9 +9,9 @@ import com.vti.form.OrderFormUpdate;
 
 public interface IOrderService {
     OrderDto createOrder(OrderForm form);
-    OrderDto getOrderById(Long id);
+    OrderDto getOrderById(Long id, Long currentUserId, String currentUserRole);
     List<OrderDto> getOrdersByUserId(Long userId);
-    OrderDto updateOrderStatus(Long id, OrderStatus status);
-    OrderDto updateOrder(Long id, OrderFormUpdate form);
-    void cancelOrder(Long id); // chỉ cho phép khi PENDING
+    OrderDto updateOrderStatus(Long id, OrderStatus status, Long currentUserId, String currentUserRole);
+    OrderDto updateOrder(Long id, OrderFormUpdate form, Long currentUserId, String currentUserRole);
+    void cancelOrder(Long id, Long currentUserId, String currentUserRole); // chỉ cho phép khi PENDING
 }

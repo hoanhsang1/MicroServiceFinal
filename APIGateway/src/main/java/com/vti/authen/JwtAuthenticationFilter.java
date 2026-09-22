@@ -9,20 +9,19 @@ import org.springframework.http.server.reactive.ServerHttpResponse;
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.ServerWebExchange;
 
+import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import reactor.core.publisher.Mono;
-//Hãy tự động tạo và quản lý JwtAuthenticationFilter.
+
 @Component
 public class JwtAuthenticationFilter implements GlobalFilter {
 
-    // Phải TRÙNG với secret bên AuthService (com.vti.authen.JwtUtil)
     private static final String SECRET_KEY = "mySuperSecretKeyThatIsLongEnoughForHS256Encoding123456";
 
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
         ServerHttpRequest req = exchange.getRequest();
 
-        // Cho login/register đi thẳng, không cần token
         if (req.getURI().getPath().contains("/api/v1/auth/login")
                 || req.getURI().getPath().contains("/api/v1/auth/register")) {
             return chain.filter(exchange);
@@ -32,8 +31,26 @@ public class JwtAuthenticationFilter implements GlobalFilter {
         if (authHeader != null && authHeader.startsWith("Bearer ")) {
             String token = authHeader.substring(7);
             try {
-                Jwts.parser().setSigningKey(SECRET_KEY).parseClaimsJws(token);
-                return chain.filter(exchange);
+                Claims claims = Jwts.parser()
+                        .setSigningKey(SECRET_KEY)
+                        .parseClaimsJws(token)
+                        .getBody();
+
+                String username = claims.getSubject();
+                String role = claims.get("role", String.class);
+                Long userId = claims.get("userId", Long.class);
+
+                ServerHttpRequest mutatedRequest = req.mutate()
+                        .header("X-User-Name", username)
+                        .header("X-User-Role", role)
+                        .header("X-User-Id", String.valueOf(userId))
+                        .build();
+
+                ServerWebExchange mutatedExchange = exchange.mutate()
+                        .request(mutatedRequest)
+                        .build();
+
+                return chain.filter(mutatedExchange);
             } catch (Exception e) {
                 return onError(exchange, "Invalid JWT token", HttpStatus.UNAUTHORIZED);
             }

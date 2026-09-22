@@ -9,7 +9,7 @@ import com.vti.form.AuthRequest;
 import com.vti.form.RegisterRequest;
 import com.vti.rabbitmqClient.service.RabbitMQSender;
 import com.vti.repository.IUserRepository;
-
+import com.vti.entity.enums.UserRole;
 
 @Service
 public class AuthService implements IAuthService {
@@ -25,7 +25,7 @@ public class AuthService implements IAuthService {
         if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
             throw new RuntimeException("Invalid credentials");
         }
-        return jwtUtil.generateToken(user.getUsername());
+        return jwtUtil.generateToken(user.getUsername(), user.getRole().name(), user.getUserId());
     }
 
     @Override
@@ -39,6 +39,8 @@ public class AuthService implements IAuthService {
         user.setPassword(passwordEncoder.encode(request.getPassword()));
         user.setFullName(request.getFullName());
         user.setPhone(request.getPhone());
+        user.setUserId(request.getUserId()); // Set user ID from request if provided
+        user.setRole(request.getRole() != null ? request.getRole() : UserRole.USER); // Set role from request if provided
         User savedUser = userRepository.save(user);
 
         rabbitMQSender.sendUserCreatedEvent(savedUser); 

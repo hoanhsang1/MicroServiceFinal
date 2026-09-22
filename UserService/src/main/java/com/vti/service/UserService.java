@@ -61,13 +61,6 @@ public class UserService implements IUserService {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
                     "User with phone " + form.getPhone() + " already exists.");
         }
-        if (form.getPassword() == null || form.getPassword().length() < 8) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Password must be at least 8 characters long.");
-        }
-        if (!form.getEmail().matches("^[A-Za-z0-9+_.-]+@(.+)$")) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid email format.");
-        }
 
         // NOTE (làm sau): password đang lưu plain text, chưa mã hoá — chưa làm security
         User newUser = User.builder()

@@ -15,7 +15,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-
+import jakarta.validation.Valid;
 import com.vti.dto.ProductDto;
 import com.vti.entity.enums.ProductStatus;
 import com.vti.form.ProductForm;
@@ -29,7 +29,7 @@ public class ProductController {
     private IProductService productService;
 
     @PostMapping
-    public ResponseEntity<ProductDto> create(@RequestBody ProductForm form) {
+    public ResponseEntity<ProductDto> create(@RequestBody @Valid ProductForm form) {
         return ResponseEntity.status(HttpStatus.CREATED).body(productService.createProduct(form));
     }
 
@@ -47,7 +47,7 @@ public class ProductController {
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<ProductDto> update(@PathVariable Long id, @RequestBody ProductForm form) {
+    public ResponseEntity<ProductDto> update(@PathVariable Long id, @RequestBody @Valid ProductForm form) {
         return ResponseEntity.ok(productService.updateProduct(id, form));
     }
 

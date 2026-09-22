@@ -88,19 +88,27 @@ public class PaymentService implements IPaymentService {
     }
 
     @Override
-    public List<PaymentDto> getPaymentsByOrderId(Long orderId) {
+    public List<PaymentDto> getPaymentsByOrderId(Long orderId, Long userId, String userRole) {
+        boolean isAdmin = "ADMIN".equals(userRole);
+        boolean isOwner = paymentRepository.existsByOrderIdAndUserId(orderId, userId);
+        if (!isAdmin && !isOwner) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Bạn không có quyền xem các thanh toán của đơn hàng này");
+        }
         return paymentRepository.findByOrderId(orderId).stream()
                 .map(this::toDto)
                 .toList();
     }
 
     @Override
-    public PaymentDto updatePaymentStatus(Long id, PaymentFormUpdate form) {
+    public PaymentDto updatePaymentStatus(Long id, PaymentFormUpdate form, String userRole) {
         Payments payment = paymentRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy thanh toán id=" + id));
 
         payment.setStatus(form.getStatus());
-
+        boolean isAdmin = "ADMIN".equals(userRole);
+        if (!isAdmin) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Bạn không có quyền cập nhật trạng thái thanh toán này");
+        }
         if (form.getStatus() == PaymentStatus.SUCCESS) {
             payment.setPaidAt(LocalDateTime.now());
             try {
