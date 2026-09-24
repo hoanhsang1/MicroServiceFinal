@@ -1,8 +1,11 @@
 package com.vti.service;
 
+import org.springframework.http.HttpStatus;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
+
 import com.vti.authen.JwtUtil;
 import com.vti.entity.User;
 import com.vti.form.AuthRequest;
@@ -21,9 +24,9 @@ public class AuthService implements IAuthService {
     @Override
     public String login(AuthRequest request) {
         User user = userRepository.findByUsername(request.getUsername())
-                .orElseThrow(() -> new RuntimeException("Account not found"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Account not found"));
         if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
-            throw new RuntimeException("Invalid credentials");
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid credentials");
         }
         return jwtUtil.generateToken(user.getUsername(), user.getRole().name(), user.getId());
     }
@@ -31,7 +34,8 @@ public class AuthService implements IAuthService {
     @Override
     public User register(RegisterRequest request) {
         if (userRepository.existsByUsername(request.getUsername())) {
-            throw new RuntimeException("Username already exists");
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Username already exists");
+
         }
         User user = new User();
         user.setUsername(request.getUsername());
