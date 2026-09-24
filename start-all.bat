@@ -37,6 +37,9 @@ start "PaymentService" cmd /k "cd /d D:\User\downloads\Assignment_VTi\javacore\D
 echo Starting AuthService...
 start "AuthService" cmd /k "cd /d D:\User\downloads\Assignment_VTi\javacore\DTN2601\MicroServiceFinal\AuthService && mvn spring-boot:run"
 
+echo Starting NotifyService...
+start "NotifyService" cmd /k "cd /d D:\User\downloads\Assignment_VTi\javacore\DTN2601\MicroServiceFinal\NotifyService && mvn spring-boot:run"
+
 echo Starting APIGateway...
 start "APIGateway" cmd /k "cd /d D:\User\downloads\Assignment_VTi\javacore\DTN2601\MicroServiceFinal\APIGateway && mvn spring-boot:run"
 
