@@ -15,6 +15,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ResponseStatusException;
+
 import jakarta.validation.Valid;
 
 import com.vti.dto.UserDto;
@@ -61,7 +63,13 @@ public class UserController {
     }
 
     @PatchMapping("/{id}/status")
-    public ResponseEntity<UserDto> changeStatus(@PathVariable Long id, @RequestParam String status) {
+    public ResponseEntity<UserDto> changeStatus(
+        @PathVariable Long id, 
+        @RequestParam String status,
+        @RequestParam(required = false) String currentUserRole) {
+        if (!"ADMIN".equals(currentUserRole)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Chỉ ADMIN mới được thay đổi trạng thái người dùng");
+        }
         return ResponseEntity.ok(userService.changeUserStatus(id, status));
     }
 }

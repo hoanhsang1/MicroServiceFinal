@@ -62,7 +62,7 @@ public class OrderController {
         @RequestHeader (value = "X-User-Id", required = false) Long userId,
         @RequestHeader (value = "X-User-Role", required = false) String userRole) {
         OrderStatus status = OrderStatus.valueOf(body.get("status").toUpperCase());
-        return ResponseEntity.ok(orderService.updateOrderStatus(id, status, userRole));
+        return ResponseEntity.ok(orderService.updateOrderStatus(id, status, userId, userRole));
     }
 
     @DeleteMapping("/{id}")

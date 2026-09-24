@@ -8,4 +8,5 @@ import com.vti.entity.Payments;
 
 public interface IPaymentRepository extends JpaRepository<Payments, Long> {
     List<Payments> findByOrderId(Long orderId);
+    boolean existsByOrderIdAndUserId(Long orderId, Long userId);
 }

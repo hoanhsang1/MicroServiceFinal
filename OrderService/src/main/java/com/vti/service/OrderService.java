@@ -131,7 +131,7 @@ public class OrderService implements IOrderService {
     }
 
     @Override
-    public OrderDto updateOrderStatus(Long id, OrderStatus status, String currentUserRole, Long currentUserId) {
+    public OrderDto updateOrderStatus(Long id, OrderStatus status, Long currentUserId, String currentUserRole) {
         Order order = orderRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy đơn hàng id=" + id));
         order.setStatus(status);
