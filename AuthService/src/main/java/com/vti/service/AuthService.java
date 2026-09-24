@@ -39,7 +39,11 @@ public class AuthService implements IAuthService {
         user.setPassword(passwordEncoder.encode(request.getPassword()));
         user.setFullName(request.getFullName());
         user.setPhone(request.getPhone()); // Set user ID from request if provided
-        user.setRole(request.getRole() != null ? request.getRole() : UserRole.USER.toString()); // Set role from request if provided
+        user.setRole(
+                        request.getRole() != null
+                            ? UserRole.valueOf(request.getRole())
+                            : UserRole.USER
+                    );
         User savedUser = userRepository.save(user);
 
         rabbitMQSender.sendUserCreatedEvent(savedUser); 
