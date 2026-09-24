@@ -1,12 +1,15 @@
 package com.vti.authen;
 
 import io.jsonwebtoken.*;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import java.util.Date;
 
 @Component
 public class JwtUtil {
-    private String secret = "mySuperSecretKeyThatIsLongEnoughForHS256Encoding123456";
+
+    @Value("${jwt.secret}")
+    private String secret;
 
     public String generateToken(String username, String role, Long userId) {
         return Jwts.builder()

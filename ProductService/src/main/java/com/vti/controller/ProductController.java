@@ -17,7 +17,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
-
+import org.springframework.beans.factory.annotation.Value;
+import jakarta.validation.Valid;
+import org.springframework.web.server.ResponseStatusException;
 import jakarta.validation.Valid;
 import com.vti.dto.ProductDto;
 import com.vti.entity.enums.ProductStatus;
@@ -76,9 +78,18 @@ public class ProductController {
         return ResponseEntity.noContent().build();
     }
 
+    @Value("${internal.api.key}")
+    private String internalApiKey;
+
     // OrderService sẽ gọi API này khi làm phần liên service (delta âm khi trừ kho lúc đặt hàng)
     @PatchMapping("/{id}/quantity")
-    public ResponseEntity<ProductDto> updateQuantity(@PathVariable Long id, @RequestBody Integer delta) {
+    public ResponseEntity<ProductDto> updateQuantity(
+            @PathVariable Long id,
+            @RequestBody Integer delta,
+            @RequestHeader(value = "X-Internal-Api-Key", required = false) String apiKey) {
+        if (!internalApiKey.equals(apiKey)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Endpoint nội bộ, không cho phép gọi trực tiếp");
+        }
         return ResponseEntity.ok(productService.updateQuantity(id, delta));
     }
 }

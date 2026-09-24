@@ -10,7 +10,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
-import com.vti.client.OrderClient;
+import com.vti.client.OrderGateway;
 import com.vti.client.dto.OrderClientDto;
 import com.vti.client.dto.PaymentDto;
 import com.vti.entity.Payments;
@@ -19,8 +19,6 @@ import com.vti.form.PaymentForm;
 import com.vti.form.PaymentFormUpdate;
 import com.vti.repository.IPaymentRepository;
 
-import feign.FeignException;
-
 @Service
 public class PaymentService implements IPaymentService {
 
@@ -28,7 +26,7 @@ public class PaymentService implements IPaymentService {
     private IPaymentRepository paymentRepository;
 
     @Autowired
-    private OrderClient orderClient;
+    private OrderGateway orderGateway;
 
     private PaymentDto toDto(Payments p) {
         return PaymentDto.builder()
@@ -47,21 +45,13 @@ public class PaymentService implements IPaymentService {
 
     @Override
     public PaymentDto createPayment(PaymentForm form) {
-        OrderClientDto order;
-        try {
-            order = orderClient.getOrderById(form.getOrderId());
-        } catch (FeignException.NotFound e) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Đơn hàng id=" + form.getOrderId() + " không tồn tại");
-        }
+        OrderClientDto order = orderGateway.getOrder(form.getOrderId());
 
         if ("CANCELLED".equals(order.getStatus())) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Đơn hàng đã bị huỷ, không thể thanh toán");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Đơn hàng đã bị huỷ, không thể thanh toán");
         }
         if ("PAID".equals(order.getStatus()) || "COMPLETED".equals(order.getStatus())) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Đơn hàng đã được thanh toán trước đó");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Đơn hàng đã được thanh toán trước đó");
         }
         if (order.getTotalAmount().compareTo(form.getAmount()) != 0) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
@@ -104,19 +94,15 @@ public class PaymentService implements IPaymentService {
         Payments payment = paymentRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy thanh toán id=" + id));
 
-        payment.setStatus(form.getStatus());
         boolean isAdmin = "ADMIN".equals(userRole);
         if (!isAdmin) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Bạn không có quyền cập nhật trạng thái thanh toán này");
         }
+
+        payment.setStatus(form.getStatus());
         if (form.getStatus() == PaymentStatus.SUCCESS) {
             payment.setPaidAt(LocalDateTime.now());
-            try {
-                orderClient.updateStatus(payment.getOrderId(), Map.of("status", "PAID"));
-            } catch (FeignException e) {
-                throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,
-                        "Không thể cập nhật trạng thái đơn hàng id=" + payment.getOrderId());
-            }
+            orderGateway.updateStatus(payment.getOrderId(), Map.of("status", "PAID"));
         }
 
         return toDto(paymentRepository.save(payment));

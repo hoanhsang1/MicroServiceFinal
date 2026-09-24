@@ -1,0 +1,4 @@
+.env
+RabbitMQServer/data/
+*.jar
+hs_err_pid*.log

@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import com.vti.client.dto.OrderClientDto;
 
 // "OrderService" phải KHỚP với spring.application.name bên OrderService
-@FeignClient(name = "OrderService")
+@FeignClient(name = "OrderService", configuration = com.vti.client.config.FeignInternalAuthConfig.class)
 public interface OrderClient {
 
     @GetMapping("/api/v1/orders/{id}")

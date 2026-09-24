@@ -9,7 +9,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import com.vti.client.dto.ProductClientDto;
 
 // "product-service" phải KHỚP với spring.application.name bên ProductService
-@FeignClient(name = "ProductService")
+@FeignClient(name = "ProductService", configuration = com.vti.client.config.FeignInternalAuthConfig.class)
 public interface ProductClient {
 
     @GetMapping("/api/v1/products/{id}")

@@ -15,8 +15,8 @@ import reactor.core.publisher.Mono;
 @Component
 public class JwtAuthenticationFilter implements GlobalFilter {
 
-    private static final String SECRET_KEY =
-            "mySuperSecretKeyThatIsLongEnoughForHS256Encoding123456";
+    @org.springframework.beans.factory.annotation.Value("${jwt.secret}")
+     private String SECRET_KEY;
 
     @Override
     public Mono<Void> filter(

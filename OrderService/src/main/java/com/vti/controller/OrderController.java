@@ -21,6 +21,7 @@ import com.vti.entity.enums.OrderStatus;
 import com.vti.form.OrderForm;
 import com.vti.form.OrderFormUpdate;
 import com.vti.service.IOrderService;
+import org.springframework.beans.factory.annotation.Value;
 
 @RestController
 @RequestMapping("/api/v1/orders")
@@ -34,11 +35,28 @@ public class OrderController {
         return ResponseEntity.status(HttpStatus.CREATED).body(orderService.createOrder(form));
     }
 
+    @Value("${internal.api.key}")
+    private String internalApiKey;
+
     @GetMapping("/{id}")
     public ResponseEntity<OrderDto> getById(@PathVariable Long id,
-        @RequestHeader (value = "X-User-Id", required = false) Long userId,
-        @RequestHeader (value = "X-User-Role", required = false) String userRole) {
-        return ResponseEntity.ok(orderService.getOrderById(id, userId, userRole));
+        @RequestHeader(value = "X-User-Id", required = false) Long userId,
+        @RequestHeader(value = "X-User-Role", required = false) String userRole,
+        @RequestHeader(value = "X-Internal-Api-Key", required = false) String apiKey) {
+        boolean internalCall = internalApiKey.equals(apiKey);
+        return ResponseEntity.ok(orderService.getOrderById(id, userId, userRole, internalCall));
+    }
+
+    @PutMapping("/{id}/status")
+    public ResponseEntity<OrderDto> updateStatus(
+        @PathVariable Long id,
+        @RequestBody Map<String, String> body,
+        @RequestHeader(value = "X-User-Id", required = false) Long userId,
+        @RequestHeader(value = "X-User-Role", required = false) String userRole,
+        @RequestHeader(value = "X-Internal-Api-Key", required = false) String apiKey) {
+        boolean internalCall = internalApiKey.equals(apiKey);
+        OrderStatus status = OrderStatus.valueOf(body.get("status").toUpperCase());
+        return ResponseEntity.ok(orderService.updateOrderStatus(id, status, userId, userRole, internalCall));
     }
 
     @GetMapping("/user/{userId}")
@@ -55,15 +73,6 @@ public class OrderController {
         return ResponseEntity.ok(orderService.updateOrder(id, form, userId, userRole));
     }
 
-    @PutMapping("/{id}/status")
-    public ResponseEntity<OrderDto> updateStatus(
-        @PathVariable Long id, 
-        @RequestBody Map<String, String> body,
-        @RequestHeader (value = "X-User-Id", required = false) Long userId,
-        @RequestHeader (value = "X-User-Role", required = false) String userRole) {
-        OrderStatus status = OrderStatus.valueOf(body.get("status").toUpperCase());
-        return ResponseEntity.ok(orderService.updateOrderStatus(id, status, userId, userRole));
-    }
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> cancel(

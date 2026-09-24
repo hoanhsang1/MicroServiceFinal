@@ -10,7 +10,6 @@ import org.springframework.web.server.ResponseStatusException;
 import com.vti.dto.UserDto;
 import com.vti.entity.User;
 import com.vti.entity.enums.UserStatus;
-import com.vti.form.UserForm;
 import com.vti.form.UserFormUpdate;
 import com.vti.repository.IUserRepository;
 
@@ -48,56 +47,11 @@ public class UserService implements IUserService {
     }
 
     @Override
-    public UserDto register(UserForm form) {
-        if (userRepository.existsByUsername(form.getUsername())) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT,
-                    "User with username " + form.getUsername() + " already exists.");
-        }
-        if (userRepository.existsByEmail(form.getEmail())) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT,
-                    "User with email " + form.getEmail() + " already exists.");
-        }
-        if (userRepository.existsByPhone(form.getPhone())) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT,
-                    "User with phone " + form.getPhone() + " already exists.");
-        }
-
-        // NOTE (làm sau): password đang lưu plain text, chưa mã hoá — chưa làm security
-        User newUser = User.builder()
-                .username(form.getUsername())
-                .email(form.getEmail())
-                .password(form.getPassword())
-                .fullName(form.getFullName())
-                .phone(form.getPhone())
-                .status(UserStatus.ACTIVE)
-                .build();
-
-        return toDto(userRepository.save(newUser));
-    }
-
-    @Override
-    public UserDto login(String username, String password) {
-        User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Sai tài khoản hoặc mật khẩu"));
-
-        // NOTE (làm sau): so sánh password thường, chưa mã hoá — chưa làm security/JWT
-        if (!user.getPassword().equals(password)) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Sai tài khoản hoặc mật khẩu");
-        }
-        if (user.getStatus() != UserStatus.ACTIVE) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Tài khoản đã bị khoá hoặc vô hiệu hoá");
-        }
-        return toDto(user);
-    }
-
-    @Override
     public UserDto updateUser(Long id, UserFormUpdate form) {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy user id=" + id));
-
         if (form.getFullName() != null) user.setFullName(form.getFullName());
         if (form.getPhone() != null) user.setPhone(form.getPhone());
-
         return toDto(userRepository.save(user));
     }
 
@@ -105,7 +59,7 @@ public class UserService implements IUserService {
     public void deleteUser(Long id) {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy user id=" + id));
-        user.setStatus(UserStatus.INACTIVE); // xoá mềm, không xoá cứng
+        user.setStatus(UserStatus.INACTIVE);
         userRepository.save(user);
     }
 
@@ -113,14 +67,12 @@ public class UserService implements IUserService {
     public UserDto changeUserStatus(Long id, String status) {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy user id=" + id));
-
         UserStatus newStatus;
         try {
             newStatus = UserStatus.valueOf(status.toUpperCase());
         } catch (IllegalArgumentException ex) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Status không hợp lệ: " + status);
         }
-
         user.setStatus(newStatus);
         return toDto(userRepository.save(user));
     }
