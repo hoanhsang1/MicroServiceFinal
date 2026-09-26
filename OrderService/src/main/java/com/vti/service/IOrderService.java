@@ -13,5 +13,5 @@ public interface IOrderService {
     OrderDto updateOrder(Long id, OrderFormUpdate form, Long currentUserId, String currentUserRole);
     void cancelOrder(Long id, Long currentUserId, String currentUserRole); // chỉ cho phép khi PENDING
     OrderDto getOrderById(Long id, Long currentUserId, String currentUserRole, boolean internalCall);
-    OrderDto updateOrderStatus(Long id, OrderStatus status, Long currentUserId, String currentUserRole, boolean internalCall);
+    OrderDto updateOrderStatus(Long id, OrderStatus status, String currentUserRole, boolean internalCall);
 }

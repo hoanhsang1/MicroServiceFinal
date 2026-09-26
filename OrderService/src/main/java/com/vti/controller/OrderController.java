@@ -51,12 +51,11 @@ public class OrderController {
     public ResponseEntity<OrderDto> updateStatus(
         @PathVariable Long id,
         @RequestBody Map<String, String> body,
-        @RequestHeader(value = "X-User-Id", required = false) Long userId,
         @RequestHeader(value = "X-User-Role", required = false) String userRole,
         @RequestHeader(value = "X-Internal-Api-Key", required = false) String apiKey) {
         boolean internalCall = internalApiKey.equals(apiKey);
         OrderStatus status = OrderStatus.valueOf(body.get("status").toUpperCase());
-        return ResponseEntity.ok(orderService.updateOrderStatus(id, status, userId, userRole, internalCall));
+        return ResponseEntity.ok(orderService.updateOrderStatus(id, status, userRole, internalCall));
     }
 
     @GetMapping("/user/{userId}")

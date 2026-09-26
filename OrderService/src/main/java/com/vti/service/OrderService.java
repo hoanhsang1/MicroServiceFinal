@@ -144,9 +144,8 @@ public class OrderService implements IOrderService {
         Order order = orderRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy đơn hàng id=" + id));
         if (!internalCall) {
-            boolean isOwner = order.getUserId().equals(currentUserId);
             boolean isAdmin = "ADMIN".equals(currentUserRole);
-            if (!isAdmin && !isOwner) {
+            if (!isAdmin &&) {
                 throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Bạn không có quyền cập nhật trạng thái đơn hàng này");
             }
         }
